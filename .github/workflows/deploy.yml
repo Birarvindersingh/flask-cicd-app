@@ -22,21 +22,25 @@ jobs:
         - name: Deploy App to EC2
           run: |
             ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-                sudo apt update -y
-                sudo apt install -y python3-pip git
+              sudo apt update -y
+              sudo apt install -y git python3-pip python3-venv curl
 
-                if [ ! -d flask-cicd-app ]; then
-                    git clone https://github.com/Birarvindersingh/flask-cicd-app.git
-                else
-                    cd flask-cicd-app && git pull
-                fi    
+              curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+              sudo apt install -y nodejs
 
-                cd flask-cicd-app
-                pip3 install -r requirements.txt
+              if [ ! -d flask-cicd-app ]; then
+                git clone https://github.com/Birarvindersingh/flask-cicd-app.git
+              fi
+              cd flask-cicd-app && git pull
 
-                sudo npm install pm2@latest -g || true
+              python3 -m venv venv
+              source venv/bin/activate
 
-                pm2 delete flask-app || true
-                pm2 start app.py --interpreter python3 --name flask-app
-                pm2 save
+              pip install -r requirements.txt
+
+              sudo npm install -g pm2
+
+              pm2 delete flask-app || true
+              pm2 start venv/bin/python -- app.py --name flask-app
+              pm2 save
             EOF
