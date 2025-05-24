@@ -1,0 +1,42 @@
+name: Deploy to EC2
+
+on:
+    push:
+        branches: [main]
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+        - name: Checkout repo
+          uses: actions/checkout@v3
+
+        - name: Setup SSH
+          run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+        
+        - name: Deploy App to EC2
+          run: |
+            ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+                sudo apt update -y
+                sudo apt install -y python3-pip git
+
+                if [ ! -d flask-cicd-app ]; then
+                    git clone https://github.com/Birarvindersingh/flask-cicd-app.git
+                else
+                    cd flask-cicd-app && git pull
+                fi    
+
+                cd flask-cicd-app
+                pip3 install -r requirements.txt
+
+                sudo npm install pm2@latest -g || true
+
+                pm2 delete flask-app || true
+                pm2 start app.py --interpreter python3 --name flask-app
+                pm2 save
+            EOF
